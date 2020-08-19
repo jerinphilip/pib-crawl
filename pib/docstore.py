@@ -93,7 +93,7 @@ def parallel_align():
     tgt_entry =  M.Entry.query.get(tgt)
 
 
-    aligner = lazy_loads('aligner')
+    aligner = lazy_load('aligner')
     translation, alignments = aligner(
         src_entry.content, src_entry.lang, 
         tgt_entry.content, tgt_entry.lang, 
