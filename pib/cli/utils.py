@@ -74,7 +74,7 @@ class BatchBuilder:
 
                 future_state = deepcopy(state)
                 def update_state_dict(state):
-                    #look ahead for update
+                    # look ahead for update
                     state['max_length'] = max(state['max_length'], max_len)
                     state['tpb'] += token_count
                     num_lines = len(lines)+len(_lines)
@@ -101,14 +101,18 @@ class Preproc:
         self.tokenizer = tokenizer
 
     def create_stringio(self, lines, lang):
-        tokenized = [ ' '.join(self.tokenizer(line, lang=lang)[1]) \
-                for line in lines ]
+        line_buffer = []
+        merged_lines = []
+        for line in lines:
+            lang, tokens = self.tokenizer(line, lang=lang)
+            merged_lines.append(tokens)
+
+        tokenized = [ ' '.join(line) for line in merged_lines]
         lstring = '\n'.join(tokenized)
         return tokenized, StringIO(lstring)
 
     def process(self, content, lang):
         lang, segments = self.segmenter(content, lang=lang)
-
         # Clean empty lines.
         non_empty_segments = []
         for segment in segments:
