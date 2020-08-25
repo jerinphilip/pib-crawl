@@ -24,11 +24,14 @@ class BatchBuilder:
 
     def __iter__(self):
         self.index = 0
+        self.last_index = -1
         return self
 
     def __next__(self):
         # Return a single batch
         batch = self.next_batch()
+        assert (self.index > self.last_index), "Index isn't incremented"
+        self.last_index = self.index
         return batch
     
     def count_tokens(self, lines):
@@ -48,12 +51,15 @@ class BatchBuilder:
         token_count = self.count_tokens(injected_lines)
         return uid_list, injected_lines, max_len, token_count
 
-
     def next_batch(self):
         uids, lines = [], []
         state = defaultdict(int)
-        update_flag = True
-        while(update_flag):
+
+        # while buffer-has-space =>  pool in entries.
+        # once entries are done => construct batch.
+        check_next = True
+
+        while(check_next):
             entry = self.entries[self.index]
             flag = self.filter_f(entry)
 
@@ -67,11 +73,6 @@ class BatchBuilder:
 
             else:
                 _uids, _lines, max_len, token_count = self.get_entry(entry)
-                current_ptpb = len(_lines) * max_len
-                if current_ptpb > self.max_tokens:
-                    # skip very large entries
-                    self.index = self.index + 1
-
                 future_state = deepcopy(state)
                 def update_state_dict(state):
                     # look ahead for update
@@ -87,11 +88,19 @@ class BatchBuilder:
                     lines.extend(_lines)
                     self.index = self.index + 1
                     state.update(future_state)
+
+                elif (not update_flag) and (not lines):
+                    self.index = self.index + 1
+                    check_next = True
+                else:
+                    check_next = False
+
             state['epb'] += 1    
 
             if self.index > len(self.entries):
                 break
 
+        assert (uids and lines), "Batch returned empty uids and lines"
         return Batch(uids, lines, state)
 
 
