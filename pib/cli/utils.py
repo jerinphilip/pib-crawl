@@ -66,10 +66,12 @@ class BatchBuilder:
             if not entry.content:
                 print('{} {} has no content, skipping entry'.format(entry.lang, entry.id))
                 self.index = self.index+1
+                state['epb'] += 1    
             
             elif flag:
                 print('{} {} has translation for specified model, skipping entry'.format(entry.lang, entry.id))
                 self.index = self.index+1
+                state['epb'] += 1    
 
             else:
                 _uids, _lines, max_len, token_count = self.get_entry(entry)
@@ -87,15 +89,15 @@ class BatchBuilder:
                     uids.extend(_uids)
                     lines.extend(_lines)
                     self.index = self.index + 1
+                    state['epb'] += 1    
                     state.update(future_state)
 
                 elif (not update_flag) and (not lines):
                     self.index = self.index + 1
+                    state['epb'] += 1    
                     check_next = True
                 else:
                     check_next = False
-
-            state['epb'] += 1    
 
             if self.index > len(self.entries):
                 break
