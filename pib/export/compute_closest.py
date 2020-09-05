@@ -1,15 +1,13 @@
 import os
 import glob
+import string
 from collections import defaultdict
 from argparse import ArgumentParser
 from pprint import pprint
 from collections import namedtuple
 from tqdm import tqdm
-from webapp.cli.utils import ParallelWriter 
-from fuzzywuzzy import fuzz
 import editdistance
-import Levenshtein as lev
-import string
+from ..cli.utils import ParallelWriter 
 
 def dirname(xx):
     fst, snd = sorted([xx, 'en'])
@@ -76,7 +74,6 @@ def closest(lang, pib_src, pib_tgt, mkb_list, src_len):
                                       (pib_idx, mkb_idx, pibt, tmkb, tgt_dist))
 
 def main(pib_dir, mkb_dir, lang):
-
     #for lang in langs:
     dxx = dirname(lang)
     pdir = os.path.join(pib_dir, dxx)

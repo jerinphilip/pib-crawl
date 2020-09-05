@@ -150,6 +150,6 @@ if __name__ == '__main__':
     fpath = os.path.join(args.output_dir, args.model)
     pwriter = ParallelWriter(fpath, fname='aligned')
 
-    aligned = open('{}-aligned-{}-{}.txt'.format(model, src_lang, tgt_lang), 'a')
+    aligned = open('{}-aligned-{}-{}.txt'.format(model, src_lang, tgt_lang), 'w')
     export(src_lang, tgt_lang, model, args.resume_from)
 

@@ -17,6 +17,8 @@ def eval_len_ratio(src_len, tgt_len):
     tgt = (tgt_len >=2)
     if 0.5 <= ratio <= 2 and src and tgt:
         return True
+    else:
+        return False
 
 def eval_lang(src_lang, src_line, tgt_lang, tgt_line):
     threshold = 0.8
