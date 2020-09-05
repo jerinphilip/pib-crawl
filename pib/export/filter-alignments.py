@@ -1,13 +1,10 @@
 import os
 from io import StringIO
 from argparse import ArgumentParser
-
-from ilmulti.translator import from_pretrained
-from ..cli.utils import Preproc, ParallelWriter
-
-import langid
 from langid.langid import LanguageIdentifier
 from langid.langid import model as m
+from ilmulti.translator import from_pretrained
+from ..cli.utils import Preproc, ParallelWriter
 
 def eval_len_ratio(src_len, tgt_len):
     if src_len==0 or tgt_len==0:
@@ -20,20 +17,27 @@ def eval_len_ratio(src_len, tgt_len):
     else:
         return False
 
-def eval_lang(src_lang, src_line, tgt_lang, tgt_line):
-    threshold = 0.8
-    slang, src_prob = identifier.classify(src_line)
-    tlang, tgt_prob = identifier.classify(tgt_line)
-    src = (src_prob >= threshold)
-    tgt = (tgt_prob >= threshold)
-    if slang==src_lang and tlang==tgt_lang and src and tgt:
-        return True
-    else:
-        return False
+class EvalLang:
+    def __init__(self, src_lang, tgt_lang, threshold=0.8):
+        self.identifier = LanguageIdentifier.from_modelstring(m, norm_probs=True)
+        self.identifier.set_languages([src_lang, tgt_lang])
+        self.threshold = threshold
+
+    def __call__(self, src_lang, src_line, tgt_lang, tgt_line):
+        slang, src_prob = self.identifier.classify(src_line)
+        tlang, tgt_prob = self.identifier.classify(tgt_line)
+        src = (src_prob >= self.threshold)
+        tgt = (tgt_prob >= self.threshold)
+        if slang==src_lang and tlang==tgt_lang and src and tgt:
+            return True
+        else:
+            return False
+
 
 def filter_lines(src_lang, src_aligned, tgt_lang, tgt_aligned):
     unfilt, aligned = set(), set()
     src_filt, tgt_filt = set(), set()
+    eval_lang = EvalLang(src_lang, tgt_lang)
     
     for src_line, tgt_line in zip(src_aligned, tgt_aligned):
         _, src_tokens = tokenizer(src_line, lang=src_lang)
@@ -71,15 +75,13 @@ def filter_lines(src_lang, src_aligned, tgt_lang, tgt_aligned):
 if __name__ == '__main__':
     parser=ArgumentParser()
     parser.add_argument('--output-dir', help='Output-directory', type=str, required=True)
-    parser.add_argument('--src_lang', help='source language, non-english', required=True)
-    parser.add_argument('--tgt_lang', help='target language', default='en')
+    parser.add_argument('--src-lang', help='source language, non-english', required=True)
+    parser.add_argument('--tgt-lang', help='target language', default='en')
     parser.add_argument('--model', help='translation model for generating dataset', default='mm-to-en-iter2')
     args = parser.parse_args()
     src_lang, tgt_lang = args.src_lang, args.tgt_lang
     model = args.model
 
-    identifier = LanguageIdentifier.from_modelstring(m, norm_probs=True)
-    identifier.set_languages(['{}'.format(src_lang),'{}'.format(tgt_lang)])
     engine = from_pretrained(tag=model, use_cuda=False)
     tokenizer = engine.tokenizer
 
