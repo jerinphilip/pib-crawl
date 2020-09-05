@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 from langid.langid import LanguageIdentifier
 from langid.langid import model as m
 from ilmulti.translator import from_pretrained
-from ..cli.utils import Preproc, ParallelWriter
+from ..cli.utils import ParallelWriter
 
 class LengthRatioFilter:
     def __init__(self, tokenizer, src_lang, tgt_lang, min_length, lower_bound,
