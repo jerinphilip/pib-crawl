@@ -115,5 +115,5 @@ if __name__ == '__main__':
     pwriter = ParallelWriter(fpath, fname='aligned')
 
     aligned = open('{}-aligned-{}-{}.txt'.format(args.model, args.src_lang, args.tgt_lang), 'w')
-    export(src_lang, tgt_lang, args.model, args.threshold, args.resume_from)
+    export(args.src_lang, args.tgt_lang, args.model, args.threshold, args.resume_from)
 
