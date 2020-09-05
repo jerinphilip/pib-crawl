@@ -160,14 +160,12 @@ class ParallelWriter:
         if not os.path.exists(fpath):
             os.makedirs(fpath)
 
-        if (src, tgt) in self.files:
-            return self.files[(src, tgt)]
+        if (src, tgt) not in self.files:
+            self.files[(src, tgt)] = [
+                open(os.path.join(fpath, '{}.{}'.format(self.fname, src)), 'w'),
+                open(os.path.join(fpath, '{}.{}'.format(self.fname, tgt)), 'w')
+            ]
 
-
-        self.files[(src, tgt)] = [
-            open(os.path.join(fpath, '{}.{}'.format(self.fname, src)), 'w'),
-            open(os.path.join(fpath, '{}.{}'.format(self.fname, tgt)), 'w')
-        ]
         return self.files[(src, tgt)]
 
     def write(self, src, tgt, srcline, tgtline):
