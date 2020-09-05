@@ -82,10 +82,10 @@ def filter_lines(args):
 
         # Otherwise.
         if allowed_in:
-            accepted.write(src_lang, tgt_lang, src_line, tgt_line)
+            accepted.write(args.src_lang, args.tgt_lang, src_line, tgt_line)
         
         else:
-            rejected.write(src_lang, tgt_lang, src_line, tgt_line)                    
+            rejected.write(args.src_lang, args.tgt_lang, src_line, tgt_line)                    
 
 if __name__ == '__main__':
     parser=ArgumentParser()
