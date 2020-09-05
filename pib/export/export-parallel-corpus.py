@@ -6,9 +6,7 @@ from tqdm import tqdm
 from collections import defaultdict
 from argparse import ArgumentParser
 from sqlalchemy import func, and_, or_
-
 from ilmulti.translator import from_pretrained
-
 from .. import db
 from ..models import Entry, Link, Translation, Retrieval
 from ..cli.utils import Preproc, ParallelWriter

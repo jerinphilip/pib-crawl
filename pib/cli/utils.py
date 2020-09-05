@@ -141,10 +141,16 @@ class Preproc:
         return src   
 
 class ParallelWriter:
-    def __init__(self, fpath, fname):
+    def __init__(self, fpath, fname, unique = False):
         self.fpath = fpath
         self.fname = fname
         self.files = {}
+        self.unique = unique
+        if self.unique:
+            self._tracking_set = set()
+            # TODO(jerin): Write this later.
+            self._src_tracking_set = set()
+            self._tgt_tracking_set = set()
 
     def get_fp(self, src, tgt):
         fst, snd = sorted([src, tgt])
@@ -165,6 +171,17 @@ class ParallelWriter:
         return self.files[(src, tgt)]
 
     def write(self, src, tgt, srcline, tgtline):
+        if self.unique:
+            tpl = (srcline, tgtline)
+            add_flag = tpl not in self._tracking_set
+            if add_flag:
+                self._tracking_set.add(tpl)
+                self._write(src, tgt, srcline, tgtline)
+        else:
+            self._write(src, tgt, srcline, tgtline)
+
+
+    def _write(self, src, tgt, srcline, tgtline):
         srcfile, tgtfile = self.get_fp(src, tgt)
         print(srcline, file=srcfile)
         print(tgtline, file=tgtfile)

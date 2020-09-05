@@ -30,16 +30,18 @@ class LengthRatioFilter:
 
 class EvalLang:
     def __init__(self, src_lang, tgt_lang, threshold=0.8):
+        self.src_lang = src_lang
+        self.tgt_lang = tgt_lang
         self.identifier = LanguageIdentifier.from_modelstring(m, norm_probs=True)
         self.identifier.set_languages([src_lang, tgt_lang])
         self.threshold = threshold
 
-    def __call__(self, src_lang, src_line, tgt_lang, tgt_line):
+    def __call__(self, src_line, tgt_line):
         slang, src_prob = self.identifier.classify(src_line)
         tlang, tgt_prob = self.identifier.classify(tgt_line)
         src = (src_prob >= self.threshold)
         tgt = (tgt_prob >= self.threshold)
-        if slang==src_lang and tlang==tgt_lang and src and tgt:
+        if (slang == self.src_lang and tlang==self.tgt_lang and src and tgt):
             return True
         else:
             return False
@@ -87,14 +89,12 @@ if __name__ == '__main__':
     parser.add_argument('--tgt-lang', help='target language', default='en')
     parser.add_argument('--model', help='translation model for generating dataset', default='mm-to-en-iter2')
     args = parser.parse_args()
-    src_lang, tgt_lang = args.src_lang, args.tgt_lang
     model = args.model
 
     engine = from_pretrained(tag=model, use_cuda=False)
-    tokenizer = engine.tokenizer
 
     fpath = os.path.join(args.output_dir, args.model)
-    dirname = '{}-{}'.format(*sorted([src_lang, tgt_lang]))
+    dirname = '{}-{}'.format(*sorted([args.src_lang, args.tgt_lang]))
 
     unique_aligned = ParallelWriter(fpath, fname='unique_aligned')
     filtered = ParallelWriter(fpath, fname='filtered')
@@ -105,7 +105,7 @@ if __name__ == '__main__':
     
     filters = [
         EvalLang(args.src_lang, args.tgt_lang),
-        LengthRatioFilter(tokenizer, min_length=2, lower_bound=0.5, upper_bound=2.0)
+        LengthRatioFilter(engine.tokenizer, min_length=2, lower_bound=0.5, upper_bound=2.0)
     ]
 
     filter_lines(args.src_lang, src_aligned, args.tgt_lang, tgt_aligned, filters)
