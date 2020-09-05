@@ -6,16 +6,27 @@ from langid.langid import model as m
 from ilmulti.translator import from_pretrained
 from ..cli.utils import Preproc, ParallelWriter
 
-def eval_len_ratio(src_len, tgt_len):
-    if src_len==0 or tgt_len==0:
-        return False
-    ratio = src_len/tgt_len
-    src = (src_len >=2)
-    tgt = (tgt_len >=2)
-    if 0.5 <= ratio <= 2 and src and tgt:
-        return True
-    else:
-        return False
+class LengthRatioFilter:
+    def __init__(self, tokenizer, min_length, lower_bound, upper_bound):
+        self.lower_bound = lower_bound
+        self.upper_bound = upper_bound
+        self.tokenizer = tokenizer
+        self.min_length = min_length
+    
+    def __call__(self, src_line, tgt_line):
+        _, src_tokens = self.tokenizer(src_line, lang=src_lang)
+        _, tgt_tokens = self.tokenizer(tgt_line, lang=tgt_lang)
+        src_len, tgt_len = len(src_tokens), len(tgt_tokens)
+
+        # Also handles the zero degeneracy
+        src = (src_len >= self.min_length)
+        tgt = (tgt_len >= self.min_length)
+        if not (src and tgt):
+            return False
+
+        ratio = src_len/tgt_len
+        return (self.lower_bound <= ratio) and (ratio <= self.upper_bound)
+
 
 class EvalLang:
     def __init__(self, src_lang, tgt_lang, threshold=0.8):
@@ -34,27 +45,24 @@ class EvalLang:
             return False
 
 
-def filter_lines(src_lang, src_aligned, tgt_lang, tgt_aligned):
+def filter_lines(src_lang, src_aligned, tgt_lang, tgt_aligned, filters):
     unfilt, aligned = set(), set()
     src_filt, tgt_filt = set(), set()
-    eval_lang = EvalLang(src_lang, tgt_lang)
     
     for src_line, tgt_line in zip(src_aligned, tgt_aligned):
-        _, src_tokens = tokenizer(src_line, lang=src_lang)
-        _, tgt_tokens = tokenizer(tgt_line, lang=tgt_lang)
-
-        src_len, tgt_len = len(src_tokens), len(tgt_tokens)
-
-        len_eval = eval_len_ratio(src_len, tgt_len)
-        lang_eval = eval_lang(src_lang, src_line, tgt_lang, tgt_line)
-        
         src_line = src_line.rstrip('\n')
         tgt_line = tgt_line.rstrip('\n')
 
+        # Check if any of the filters fail.
+        for _filter in filters:
+            if not _filter(src_line, tgt_line):
+                continue
+
+        # Otherwise.
         if (src_line, tgt_line) not in aligned:
             '''
-                Filtering duplicates from aligend content.
-                Done here as export is done per entry.
+            Filtering duplicates from aligned content.
+            Done here as export is done per entry.
             '''
             aligned.add((src_line, tgt_line))
             unique_aligned.write(src_lang, tgt_lang, src_line, tgt_line)
@@ -95,5 +103,10 @@ if __name__ == '__main__':
     src_aligned = open(os.path.join(fpath, dirname, 'aligned.{}'.format(src_lang)), 'r')
     tgt_aligned = open(os.path.join(fpath, dirname, 'aligned.{}'.format(tgt_lang)), 'r')
     
-    filter_lines(src_lang, src_aligned, tgt_lang, tgt_aligned)
+    filters = [
+        EvalLang(args.src_lang, args.tgt_lang),
+        LengthRatioFilter(tokenizer, min_length=2, lower_bound=0.5, upper_bound=2.0)
+    ]
+
+    filter_lines(args.src_lang, src_aligned, args.tgt_lang, tgt_aligned, filters)
 
