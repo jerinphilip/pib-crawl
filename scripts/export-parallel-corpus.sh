@@ -6,8 +6,7 @@ OUTPUT_DIR='non-src-archive/pib-export'
 mkdir -p $OUTPUT_DIR;
 
 
-# for lang in hi ta te ml bn gu mr pa or ur
-for lang in te
+for lang in hi ta te ml bn gu mr pa or ur
 do
     python3 -m pib.export.export-parallel-corpus \
         --model mm-to-en-iter3 \
