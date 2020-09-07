@@ -84,6 +84,7 @@ class FrozenLink(db.Model):
     anchor = db.relationship('Entry', foreign_keys=[anchor_id])
     other = db.relationship('Entry', foreign_keys=[other_id])
 
+
 db.create_all()
 
 
