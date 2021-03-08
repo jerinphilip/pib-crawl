@@ -12,7 +12,7 @@ from flask import Blueprint
 from sqlalchemy import and_, func
 from . import models as M
 from . import db
-from .models import Entry, Link, Titles
+from .models import Entry, Link 
 from .retrieval import retrieve_neighbours
 from .utils import split_and_wrap_in_p, clean_translation, detok
 from .utils import lazy_load

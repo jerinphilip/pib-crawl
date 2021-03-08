@@ -1,41 +1,89 @@
+import logging
+import sys
+import os
+import re
 from urllib.request import Request, urlopen
 from bs4 import BeautifulSoup
-import time
-import numpy as np
-import logging
 from argparse import ArgumentParser
 from datetime import datetime
+from tqdm import tqdm, trange
 import langid
-import re
-from .lmdbcache import LMDBCacheAPI
+from copy import deepcopy
+
 from .. import db
 from ..models import Entry
 
-class CrawlState:
-    def __init__(self, path):
-        self.path = path
-        self.cache_types = ['success', 'error', 'empty']
-        self.cache = {}
+class PIBArticle:
+    def __init__(self, Id, lang, place, content, links, date):
+        self.Id = Id
+        self.lang = lang
+        self.date = date
+        self.place = place
+        self.content = content
+        self.links = links
 
-        for cache_type in self.cache_types:
-            path = '{}.{}'.format(self.path, cache_type)
-            self.cache[cache_type] = LMDBCacheAPI(path)
+    def as_dict(self):
+        return ({
+            "id": self.Id,
+            "lang": self.lang,
+            "date": self.date,
+            "place": self.place,
+            "content": self.content}, self.links)
 
-    def is_done(self, key):
-        flags = [self.cache[_type].findkey(key) for _type in self.cache_types]
-        return any(flags)
+    def __repr__(self):
+        return 'PIB(Id={}, lang={}, date={}, place={}, links={})'.format(self.Id, self.lang, str(self.date), self.place, self.links.__repr__())
 
-    def write(self, cache_type, key, content):
-        assert cache_type in self.cache_types, \
-                'cache_type has to be in {}'.format(self.cache_types)
-        self.cache[cache_type].write(key, content)
+    @classmethod
+    def fromCrawl(cls, _dict):
+        Id = _dict["Id"]
+        parsedContent = PIBArticle.parseContent(Id, _dict["content"])
+        parsedDate = PIBArticle.parseDate(Id, _dict["date"])
+        return cls(
+                Id=_dict['Id'], 
+                lang=parsedContent["lang"],
+                place=parsedDate["place"],
+                content=parsedContent["content"],
+                links=_dict["links"],
+                date=parsedDate["date"]
+        )
 
-    def get(self, key):
-        if not self.is_done(key):
-            return (False, None)
 
-        record = self.cache['success'][key] 
-        return (True, record)
+    @staticmethod
+    def parseDate(Id, release_subhead):
+        line = release_subhead.replace('\r\n', '').strip()
+        pattern = re.compile('([0-9]*) ([A-Z]*) ([0-9]*) ([0-9]*:[0-9]*[AP]M) by PIB (.*)')
+        matches = pattern.search(line)
+        if matches:
+            day, month, year, time, place = matches.groups()
+            date_string = f'{month} {day} {year} {time}'
+            date = datetime.strptime(date_string, '%b %d %Y %I:%M%p')
+            return {"date": date, "place": place}
+        else:
+            logging.error("Failed on date-parse {}".format(Id))
+            return None
+
+    @staticmethod
+    def parseContent(Id, text):
+        # text = body.text
+        lang, *_ = langid.classify(text)
+        lines = text.strip().split('\n')
+        def _filter(text):
+            flag = True
+            garbage = ['Posted On:','by PIB','ID:','/']
+            for fil in garbage:
+                if fil in text:
+                    flag = True
+            return flag
+
+        output = []
+        for line in lines:
+            line = line.strip()
+            if line and _filter(line):
+                output.append(line)
+        content = '\n'.join(output)
+        content = content.lstrip().rstrip()
+        return {"lang": lang, "content": content}
+
 
 class CachedCrawler:
     headers = {
@@ -46,135 +94,93 @@ class CachedCrawler:
        'Accept-Language': 'en-US,en;q=0.9',
     }
 
-    def __init__(self, path):
-        self.state = CrawlState(path)
+    def __init__(self, path, redo=False):
+        self.redo = redo
 
     def retrieve_pib_article(self, key):
         try:
-            soup = self.construct_soup('https://pib.gov.in/PressReleasePage.aspx?PRID={}'.format(key))
+            page = self.load(key)
+            soup = BeautifulSoup(page, 'html.parser')
+            lang_links = soup.find('div', {'class': 'ReleaseLang'})
+
+            def process(link):
+                prefix, Id = link.split('=')
+                return Id
+
+            links = {} if lang_links is None else {a.text.strip(): process(a['href']) for a in lang_links.find_all('a', href=True)}
             content = soup.find('div', {'id': 'PdfDiv'})
-            other = soup.find('div', {'class': 'ReleaseLang'})
-            links = other.find_all('a', href=True)
-            print(links)
             text = content.text.strip()
-            if (text != "Posted On:"):
-                self.state.write('success', key, text)
-                print('PIB({}) properly parsed'.format(key))
-            else:
-                self.state.write('empty', key, True)
-                print('PIB({}) found empty'.format(key))
-            return text
+
+            date = soup.find('div', {'class': 'ReleaseDateSubHeaddateTime'}).text.strip()
+            ministry = soup.find('div', {'class': 'MinistryNameSubhead'}).text.strip()
+
+            return PIBArticle.fromCrawl({"Id": key, "content": text, "date": date, "ministry": ministry, "links": links})
 
         except Exception as e:
-            print(e)
-            self.state.write('error', key, True)
-            print('PIB({}) error.'.format(key))
+            logging.debug("Article: {key} failed with {msg}".format(key=key, msg=e))
+            return None
 
-        return None
-
-    def construct_soup(self, url):
+    def load(self, key):
+        url = 'https://pib.gov.in/PressReleasePage.aspx?PRID={}'.format(key)
         request = Request(url, headers=self.headers)
         web_byte = urlopen(request).read()
         web_page = web_byte.decode('utf-8')
-        soup = BeautifulSoup(web_page, 'html.parser')
-        return soup
+        return web_page
 
-    def cached_load(self, key):
-        present, record = self.state.get(key) 
-        if record is not None:
-            return record
-        return self.retrieve_pib_article(state, key)
+class AdjacencyList(dict):
+    def __init__(self, path):
+        self.path = path
 
-class PIBArticle:
-    def __init__(self, lang, ministry, place, title, content, links):
-        self.ministry = ministry
-        self.lang = lang
-        self.place = place
-        self.title = title
-        self.content = content
-        self.links = []
-        self.validate()
+    def load(self):
+        if os.path.exists(self.path):
+            with open(self.path) as fp:
+                return json.load(self.path)
+        return {}
 
-    @classmethod
-    def fromCrawl(cls, _dict):
-        pass
-
-class DataParser:
-    @staticmethod
-    def filter(text):
-        flag=1
-        garbage = ['Posted On:','by PIB','ID:','/']
-        for fil in garbage:
-            if fil in text:
-                flag=0
-        return flag
-
-    @staticmethod
-    def parse(text):
-
-        lang, *_ = langid.classify(text)
-        lines = text.strip().split('\n')
-
-        output = []
-
-        day, month, year, time, place, date = [None]*6
-
-        for line in lines:
-            line = line.strip()
-            if line and DataParser.filter(line):
-                output.append(line)
-
-            pattern = re.compile('([0-9]+) ([A-Z]+) ([0-9]+) ([0-9]+:[0-9]+[AP]M) by PIB (.+)')
-            matches = pattern.match(line)
-            if matches:
-                day, month, year, time, place = matches.groups()
-                date_string = f'{month} {day} {year} {time}'
-                date = datetime.strptime(date_string, '%b %d %Y %I:%M%p')
-
-        content = '\n'.join(output)
-
-        return { 
-            "lang": lang, "content": content,
-            "date": date, "city": place
-        }
-
-def add_entry(key, text, update_if_exists=False):
-    processed =  DataParser.parse(text)
-    processed['id'] = key
-    entry = Entry.query.get(key)
-    if entry is None:
-        entry = Entry(**processed)
-        print(f"{key} does not exists in db; adding")
-        db.session.add(entry)
-        # db.session.commit()
-    elif update_if_exists:
-        print(f"{key} exists in db; updating")
-        for tag in processed:
-            setattr(entry, tag, processed[tag])
-        db.session.add(entry)
+    def save(self):
+        with open(self.path, 'w+') as fp:
+            return json.dump(self, fp)
 
 def main(args):
-    crawler = CachedCrawler(args.path)
-    for idx in range(args.begin, args.end):
+    crawler = CachedCrawler(args.path, args.force_redo)
+    adj = AdjacencyList('{}.save.adj.json'.format(args.path))
+    adj = adj.load()
+    for idx in trange(args.begin, args.end):
         key = str(idx)
-        text = None
+        entry = Entry.query.get(key)
+        if entry is None:
+            payload = crawler.retrieve_pib_article(key)
+            if payload is not None:
+                processed, links = payload.as_dict()
+                adj[key] = deepcopy(links)
+                entry = Entry(**processed)
+                db.session.add(entry)
+                logging.info("Idx({}) Final: {}".format(key, payload))
+        else:
+            logging.info("Idx({}) exists in db".format(key))
 
-        if args.force_redo: 
-            text = crawler.retrieve_pib_article(key)
-
-        elif args.load_from_cache:
-            text = crawler.cached_load(key)
-
-        update_if_exists = args.force_redo or args.load_from_cache
-        if text is not None:
-            add_entry(key, text, update_if_exists)
-
-        if idx%args.commit_interval == 0:
+        if (idx + 1 - args.begin)%args.commit_interval == 0:
             db.session.commit()
             db.session.flush()
+            adj.save()
+            logging.info("Committing to DB @ {}".format(key))
 
     db.session.commit()
     db.session.flush()
+
+def setup_logging(logPath, fileName):
+    logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+    rootLogger = logging.getLogger()
+    rootLogger.setLevel(logging.DEBUG)
+
+    fileHandler = logging.FileHandler('.'.join([logPath, fileName]))
+    fileHandler.setFormatter(logFormatter)
+    rootLogger.addHandler(fileHandler)
+
+    # consoleHandler = logging.StreamHandler(sys.stdout)
+    # consoleHandler.setFormatter(logFormatter)
+    # rootLogger.addHandler(consoleHandler)
+
 
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -182,7 +188,7 @@ if __name__ == '__main__':
     parser.add_argument('--begin', help='Begin PIB ID', type=int, required=True)
     parser.add_argument('--end', help='End PIB ID', type=int, required=True)
     parser.add_argument('--force-redo', help='Ignore if already exists anywhere', action='store_true')
-    parser.add_argument('--load-from-cache', help='Ignore if already exists anywhere', action='store_true')
-    parser.add_argument('--commit-interval', help='Transaction commit interval', type=int, default=10000)
+    parser.add_argument('--commit-interval', help='Transaction commit interval', type=int, default=1000)
     args = parser.parse_args()
+    setup_logging(args.path, 'crawl.log')
     main(args)
