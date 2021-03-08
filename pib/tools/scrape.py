@@ -7,25 +7,97 @@ from argparse import ArgumentParser
 from datetime import datetime
 import langid
 import re
-
 from .lmdbcache import LMDBCacheAPI
 from .. import db
 from ..models import Entry
 
-headers = {
-        'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.131 Safari/537.36',
-        'referrer': 'https://google.com',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Accept-Language': 'en-US,en;q=0.9',
-}
+class CrawlState:
+    def __init__(self, path):
+        self.path = path
+        self.cache_types = ['success', 'error', 'empty']
+        self.cache = {}
 
-def construct_soup(url):
-    request = Request(url, headers=headers)
-    web_byte = urlopen(request).read()
-    web_page = web_byte.decode('utf-8')
-    soup = BeautifulSoup(web_page, 'html.parser')
-    return soup
+        for cache_type in self.cache_types:
+            path = '{}.{}'.format(self.path, cache_type)
+            self.cache[cache_type] = LMDBCacheAPI(path)
+
+    def is_done(self, key):
+        flags = [self.cache[_type].findkey(key) for _type in self.cache_types]
+        return any(flags)
+
+    def write(self, cache_type, key, content):
+        assert cache_type in self.cache_types, \
+                'cache_type has to be in {}'.format(self.cache_types)
+        self.cache[cache_type].write(key, content)
+
+    def get(self, key):
+        if not self.is_done(key):
+            return (False, None)
+
+        record = self.cache['success'][key] 
+        return (True, record)
+
+class CachedCrawler:
+    headers = {
+       'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.131 Safari/537.36',
+       'referrer': 'https://google.com',
+       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3',
+       'Accept-Encoding': 'gzip, deflate, br',
+       'Accept-Language': 'en-US,en;q=0.9',
+    }
+
+    def __init__(self, path):
+        self.state = CrawlState(path)
+
+    def retrieve_pib_article(self, key):
+        try:
+            soup = self.construct_soup('https://pib.gov.in/PressReleasePage.aspx?PRID={}'.format(key))
+            content = soup.find('div', {'id': 'PdfDiv'})
+            other = soup.find('div', {'class': 'ReleaseLang'})
+            links = other.find_all('a', href=True)
+            print(links)
+            text = content.text.strip()
+            if (text != "Posted On:"):
+                self.state.write('success', key, text)
+                print('PIB({}) properly parsed'.format(key))
+            else:
+                self.state.write('empty', key, True)
+                print('PIB({}) found empty'.format(key))
+            return text
+
+        except Exception as e:
+            print(e)
+            self.state.write('error', key, True)
+            print('PIB({}) error.'.format(key))
+
+        return None
+
+    def construct_soup(self, url):
+        request = Request(url, headers=self.headers)
+        web_byte = urlopen(request).read()
+        web_page = web_byte.decode('utf-8')
+        soup = BeautifulSoup(web_page, 'html.parser')
+        return soup
+
+    def cached_load(self, key):
+        present, record = self.state.get(key) 
+        if record is not None:
+            return record
+        return self.retrieve_pib_article(state, key)
+
+class PIBArticle:
+    def __init__(self, lang, ministry, place, title, content, links):
+        self.ministry = ministry
+        self.lang = lang
+        self.place = place
+        self.title = title
+        self.content = content
+        self.links = []
+        self.validate()
+
+    @classmethod
+    def fromCrawl(cls, _dict):
+        pass
 
 class DataParser:
     @staticmethod
@@ -80,72 +152,18 @@ def add_entry(key, text, update_if_exists=False):
         for tag in processed:
             setattr(entry, tag, processed[tag])
         db.session.add(entry)
-        # db.session.commit()
-
-class State:
-    def __init__(self, path):
-        self.path = path
-        self.cache_types = ['success', 'error', 'empty']
-        self.cache = {}
-
-        for cache_type in self.cache_types:
-            path = '{}.{}'.format(self.path, cache_type)
-            self.cache[cache_type] = LMDBCacheAPI(path)
-
-    def is_done(self, key):
-        flags = [self.cache[_type].findkey(key) for _type in self.cache_types]
-        return any(flags)
-
-    def write(self, cache_type, key, content):
-        assert cache_type in self.cache_types, \
-                'cache_type has to be in {}'.format(self.cache_types)
-        self.cache[cache_type].write(key, content)
-
-    def get(self, key):
-        if not self.is_done(key):
-            return (False, None)
-
-        record = self.cache['success'][key] 
-        return (True, record)
-
-
-def CachedLoad(state, key):
-    present, record = state.get(key) 
-    if record is not None:
-        return record
-    return retrieve_pib_article(state, key)
-
-def retrieve_pib_article(state, key):
-    try:
-        soup = construct_soup('https://pib.gov.in/PressReleasePage.aspx?PRID={}'.format(key))
-        content = soup.find('div', {'id': 'PdfDiv'})
-        text = content.text.strip()
-        if (text != "Posted On:"):
-            state.write('success', key, text)
-            print('PIB({}) properly parsed'.format(key))
-        else:
-            state.write('empty', key, True)
-            print('PIB({}) found empty'.format(key))
-        return text
-
-    except Exception as e:
-        print(e)
-        state.write('error', key, True)
-        print('PIB({}) error.'.format(key))
-
-    return None
 
 def main(args):
-    state = State(args.path)
+    crawler = CachedCrawler(args.path)
     for idx in range(args.begin, args.end):
         key = str(idx)
         text = None
 
         if args.force_redo: 
-            text = retrieve_pib_article(state, key)
+            text = crawler.retrieve_pib_article(key)
 
         elif args.load_from_cache:
-            text = CachedLoad(state, key)
+            text = crawler.cached_load(key)
 
         update_if_exists = args.force_redo or args.load_from_cache
         if text is not None:

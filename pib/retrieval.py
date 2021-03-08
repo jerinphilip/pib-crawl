@@ -6,8 +6,6 @@ from sqlalchemy import func, and_
 import itertools
 from tqdm import tqdm
 from collections import namedtuple
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import string
 import re
@@ -37,6 +35,7 @@ class RetrievalEngine:
         query = self.query
         candidates = self.candidates
 
+        from sklearn.feature_extraction.text import TfidfVectorizer
         self.vectorizer = TfidfVectorizer()
 
         # Fits and transforms on existing data.
@@ -47,6 +46,7 @@ class RetrievalEngine:
         N, d = self.candidate_features.shape
 
         def batch_cosine_similarity(query_feature, candidate_features):
+            from sklearn.metrics.pairwise import cosine_similarity
             query_feature = np.tile(query_feature, (N, 1))
             cs = cosine_similarity(query_feature, candidate_features)
             cs = np.diag(cs)
