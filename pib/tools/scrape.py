@@ -1,5 +1,6 @@
 import logging
 import sys
+import json
 import os
 import re
 from urllib.request import Request, urlopen
@@ -134,8 +135,8 @@ class AdjacencyList(dict):
     def load(self):
         if os.path.exists(self.path):
             with open(self.path) as fp:
-                return json.load(self.path)
-        return {}
+                self.update(json.load(fp))
+        return self
 
     def save(self):
         with open(self.path, 'w+') as fp:
@@ -145,17 +146,31 @@ def main(args):
     crawler = CachedCrawler(args.path, args.force_redo)
     adj = AdjacencyList('{}.save.adj.json'.format(args.path))
     adj = adj.load()
-    for idx in trange(args.begin, args.end):
+
+    def binary_search_find_start(adj, begin, end):
+        while begin < end:
+            idx = int((begin + end)/2)
+            key = str(idx)
+            entry = Entry.query.get(key)
+            if (entry is None) or (key not in adj):
+                end = idx - 1
+            else:
+                begin = idx 
+        return begin
+
+    begin = binary_search_find_start(adj, args.begin, args.end)
+    for idx in trange(begin, args.end):
         key = str(idx)
         entry = Entry.query.get(key)
-        if entry is None:
+        if (entry is None) or (key not in adj):
             payload = crawler.retrieve_pib_article(key)
             if payload is not None:
                 processed, links = payload.as_dict()
                 adj[key] = deepcopy(links)
-                entry = Entry(**processed)
-                db.session.add(entry)
-                logging.info("Idx({}) Final: {}".format(key, payload))
+                if entry is None:
+                    entry = Entry(**processed)
+                    db.session.add(entry)
+                    logging.info("Idx({}) Final: {}".format(key, payload))
         else:
             logging.info("Idx({}) exists in db".format(key))
 
