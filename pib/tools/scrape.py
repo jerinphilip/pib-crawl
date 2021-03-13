@@ -155,7 +155,7 @@ def main(args):
             if (entry is None) or (key not in adj):
                 end = idx - 1
             else:
-                begin = idx 
+                begin = idx + 1
         return begin
 
     begin = binary_search_find_start(adj, args.begin, args.end)
@@ -182,6 +182,7 @@ def main(args):
 
     db.session.commit()
     db.session.flush()
+    adj.save()
 
 def setup_logging(logPath, fileName):
     logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
