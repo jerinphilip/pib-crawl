@@ -2,10 +2,10 @@ flask
 flask_migrate
 flask_sqlalchemy
 scikit-learn
-torch==1.1.0
+# torch==1.1.0
 lmdb
 git+https://github.com/rsennrich/Bleualign
-git+https://github.com/jerinphilip/ilmulti.git
-git+https://github.com/jerinphilip/fairseq-ilmt.git
+# git+https://github.com/jerinphilip/ilmulti.git
+# git+https://github.com/jerinphilip/fairseq-ilmt.git
 # For Scraping
 beautifulsoup4

@@ -14,10 +14,7 @@ class LMDBCacheAPI:
     def __setitem__(self, key, val):
         with self.env.begin(write=True) as txn:
             key = key.encode("ascii")
-            try:
-                txn.put(key, val)
-            except Exception as e:
-                pass
+            txn.put(key, val)
 
     def __getitem__(self, key):
         key = key.encode("ascii")
@@ -39,4 +36,7 @@ class LMDBCacheAPI:
     def write(self, idx, value):
         sample = self.serialize(value)
         self.__setitem__(idx, sample)
+
+    def close(self):
+        self.env.close()
 
