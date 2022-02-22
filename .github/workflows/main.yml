@@ -1,0 +1,31 @@
+name: "checks"
+'on':
+  push:
+    branches:
+      - main
+      - ci-sandbox
+    tags:
+      - "v*.*.*"
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+    python-checks:
+      name: "formatting and typechecks"
+      runs-on: "ubuntu-latest"
+      steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+      - name: Install Dependencies
+        run: |-
+            python3 -m pip install black isort pytype
+      - name: "Formatting checks: black, isort"
+        run: |
+            python3 -m black --check pib 
+            python3 -m isort --profile black --diff --check pib
+      - name: "Static typing checks: pytype"
+        run: |-
+            python3 -m pytype pib
