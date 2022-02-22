@@ -1,17 +1,17 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
-
 import os
 
 from lmdbcache import LMDBCacheContextManager
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 RETRY = False
 HEADLESS = False
 
 PREFIXURL = "https://pib.gov.in/PressReleasePage.aspx?PRID="
+
 
 class element_exists(object):
     """
@@ -26,7 +26,9 @@ class element_exists(object):
             wait = WebDriverWait(driver, 0.5)
             wait.until(EC.elementToBeClickable(self.elem))
             self.elem.click()
-            modaldialog = driver.find_element_by_xpath("""//*[@id="P_CategoryManagement"]""")
+            modaldialog = driver.find_element_by_xpath(
+                """//*[@id="P_CategoryManagement"]"""
+            )
             releaseiddiv = modaldialog.find_element_by_class_name("releaseId")
             textdata = releaseiddiv.text
             iddata = textdata.split(": ")[1][:-1]
@@ -37,8 +39,8 @@ class element_exists(object):
             print(e)
             return False
 
-class SeleniumCrawler():
 
+class SeleniumCrawler:
     def __init__(self, driver):
         self.driver = driver
 
@@ -54,8 +56,10 @@ class SeleniumCrawler():
         Extract links
         """
         links = []
-        otherlangs_div = self.driver.find_element_by_xpath("""//*[@id="form1"]/div[3]/div[2]/div[7]""")
-        for langs in otherlangs_div.find_elements_by_tag_name('a'):
+        otherlangs_div = self.driver.find_element_by_xpath(
+            """//*[@id="form1"]/div[3]/div[2]/div[7]"""
+        )
+        for langs in otherlangs_div.find_elements_by_tag_name("a"):
             try:
                 wait = WebDriverWait(self.driver, 0.5)
                 textdata = wait.until(element_exists(langs))
@@ -88,8 +92,7 @@ if __name__ == "__main__":
     if HEADLESS:
         options.add_argument("--headless")
     EXEC_PATH = "/home/scorpio/ADA_DATA/en_te_newscrawler/chromedriver"
-    driver = webdriver.Chrome(
-        chrome_options=options, executable_path=EXEC_PATH)
+    driver = webdriver.Chrome(chrome_options=options, executable_path=EXEC_PATH)
 
     lmdbpath = "linkmatrixcache"
     errorcachepath = "errorcache"
@@ -99,10 +102,12 @@ if __name__ == "__main__":
         with LMDBCacheContextManager(lmdbpath) as cache:
             with LMDBCacheContextManager(emptycachepath) as emptycache:
                 with SeleniumCrawler(driver) as crawler:
-                    for i in range(1483205,1584922):
-                        if not (cache.db.findkey(str(i)) and emptycache.db.findkey(str(i))):
+                    for i in range(1483205, 1584922):
+                        if not (
+                            cache.db.findkey(str(i)) and emptycache.db.findkey(str(i))
+                        ):
                             data = crawler.get_links(i)
-                            if data==None:
+                            if data == None:
                                 errorcache(str(i), [])
                             elif len(data) == 0:
                                 emptycache(str(i), [])

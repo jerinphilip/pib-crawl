@@ -34,7 +34,7 @@
 #         #scale = lambda x: alter(x)
 #         return alter
 #     top_scale = rescale(top, max_top)
-#     bot_scale = rescale(bot, max_bot) 
+#     bot_scale = rescale(bot, max_bot)
 #     # print(scale(m))
 #     #keys = df1.columns[1:]
 #     def f(c, v):
@@ -65,18 +65,16 @@
 #                 vals.append('')
 #             #print(df1.values[i,j],df2.values[i,j],i,j)
 #             # for idx, row in df1.iterrows():
-#             #     
+#             #
 #             #     for key in keys:
 #             #         v = row[key]
 #             #         cell = ('\\cc{{{c:.3f}}}{{{v}}}'
 #             #                 .format(c=scale(v), v=v))
 #             #         vals.append(cell)
-        
+
 #         print('&'.join(vals), end='')
 #         print('\\\\')
 
-
-    
 
 # if __name__ == '__main__':
 #     parser = ArgumentParser()
@@ -86,9 +84,10 @@
 #     main(args)
 
 
-import pandas as pd
 from argparse import ArgumentParser
+
 import numpy as np
+import pandas as pd
 
 
 def main(args):
@@ -96,14 +95,14 @@ def main(args):
     m = df.values[:, 1:]
     m = np.array(m)
     mx = np.max(m)
-    nm = np.where(m>0,m,int(1e-9))
+    nm = np.where(m > 0, m, int(1e-9))
     T = 0.35
     mn = np.min(nm)
     # I need f(y) : f(mx) = T, f(0) = 0
     # Scale 0 -> T to 0 to mx
 
     T = 0.35
-    scale = lambda x: 1-((x-mn)/mx)*T
+    scale = lambda x: 1 - ((x - mn) / mx) * T
 
     # print(scale(m))
     keys = df.columns[1:]
@@ -112,15 +111,14 @@ def main(args):
         vals.append(keys[idx])
         for key in keys:
             v = row[key]
-            cell = ('\\cc{{{c:.3f}}}{{{v}}}'
-                    .format(c=scale(v), v=v))
+            cell = "\\cc{{{c:.3f}}}{{{v}}}".format(c=scale(v), v=v)
             vals.append(cell)
-        print('&'.join(vals))
-        print('\\\\')
+        print("&".join(vals))
+        print("\\\\")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument('--csv', type=str, required=True)
+    parser.add_argument("--csv", type=str, required=True)
     args = parser.parse_args()
     main(args)
