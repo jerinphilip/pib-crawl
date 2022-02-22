@@ -1,24 +1,26 @@
-import time
-import numpy as np
-import langid
-from ilmulti.segment import SimpleSegmenter, Segmenter
-from ilmulti.sentencepiece import SentencePieceTokenizer
 import datetime
+import itertools
+import os
+import time
+
+import langid
+import nltk
+import numpy as np
+from bleualign.align import Aligner
+from ilmulti.segment import Segmenter, SimpleSegmenter
+from ilmulti.sentencepiece import SentencePieceTokenizer
+from ilmulti.translator.pretrained import mm_all
+from sqlalchemy import func
+from tqdm import tqdm
+
 from .. import db
 from ..models import Entry, Link
-from sqlalchemy import func
-import itertools
-from tqdm import tqdm
-import nltk
-from ilmulti.translator.pretrained import mm_all
-from bleualign.align import Aligner
-import os
 
-del_id=50
-del_time=1
-datetimeFormat = '%Y-%m-%d %H:%M:%S'
+del_id = 50
+del_time = 1
+datetimeFormat = "%Y-%m-%d %H:%M:%S"
 
-'''
+"""
 def get_mapping():
 	rows = Entry.query.order_by(Entry.date.desc()).filter_by(lang='en').all()
 	for row in rows:
@@ -44,84 +46,89 @@ def get_mapping():
 			print(sent,'\n')
 
 
-'''
+"""
 
-'''
+"""
 output = open('output.txt','w+')
 outsrc = open('outsrc.txt','w+')
 outtgt = open('outtgt.txt','w+')
 srcfile = open('srcfile.txt','r')
 tgtfile = open('tgtfile.txt','r')
 hyp_src_tgt_file = open('hyp_src_tgt_file.txt','r')
-'''
+"""
 
 
 segmenter = Segmenter()
 translator = mm_all()
 tokenizer = SentencePieceTokenizer()
 
+
 def get_tokenized(content):
-	untok = []
-	tok = []
-	for line in content:
-		lines = line.splitlines()
-		for l in lines:
-			untok.append(l) #untokenized 
-			lang, _out = tokenizer(l)
-			tokens = ' '.join(_out) #tokenized
-			tok.append(tokens)
-	return untok, tok
+    untok = []
+    tok = []
+    for line in content:
+        lines = line.splitlines()
+        for l in lines:
+            untok.append(l)  # untokenized
+            lang, _out = tokenizer(l)
+            tokens = " ".join(_out)  # tokenized
+            tok.append(tokens)
+    return untok, tok
 
 
 def ifexists():
-	hyp_src_tgt = []
-	row1=Entry.query.filter_by(id=1580832).first()
-	if row1:
-		content = segmenter(row1.content)[1]
-		untok, tok = get_tokenized(content)
-		tgt = tok
-	row=Entry.query.filter_by(id=1580904).first()
-	if row:
-		content = segmenter(row.content)[1]
-		untok, tok = get_tokenized(content)
-		src = tok
-		for sent in untok:
-			output = translator(sent,tgt_lang='en')[0]['tgt']
-			hyp_src_tgt.append(output)
-			lang, _out = tokenizer(output)
-			tokens = ' '.join(_out)
-			hyp_src_tgt = tokens
-	align(src,tgt,hyp_src_tgt)		
-#ifexists()
+    hyp_src_tgt = []
+    row1 = Entry.query.filter_by(id=1580832).first()
+    if row1:
+        content = segmenter(row1.content)[1]
+        untok, tok = get_tokenized(content)
+        tgt = tok
+    row = Entry.query.filter_by(id=1580904).first()
+    if row:
+        content = segmenter(row.content)[1]
+        untok, tok = get_tokenized(content)
+        src = tok
+        for sent in untok:
+            output = translator(sent, tgt_lang="en")[0]["tgt"]
+            hyp_src_tgt.append(output)
+            lang, _out = tokenizer(output)
+            tokens = " ".join(_out)
+            hyp_src_tgt = tokens
+    align(src, tgt, hyp_src_tgt)
 
 
+# ifexists()
 
 
-#### Pairs based on same posted date  
+#### Pairs based on same posted date
 def findpairs():
-	dups = db.session.query(Entry.date,func.count(Entry.id).label('freq')).\
-						group_by(Entry.date).\
-						subquery()
-	pair = db.session.query(Entry.id,Entry.lang,Entry.date,dups.c.freq).\
-						outerjoin(dups,Entry.date==dups.c.date).\
-						filter(dups.c.freq>1).\
-						order_by(Entry.date).\
-						all()
-	mapping = {}
-	for p in pair:
-		if p.date not in mapping:
-			mapping[p.date] = [p.id]
-		else:
-			mapping[p.date].append(p.id)
-	
-	l = list(mapping.values())
-	for bunch in tqdm(l):
-		z=itertools.permutations(bunch,2)
-		z = list(z)
-		for (x,y) in z:
-			link = Link(first_id=x,second_id=y)
-			db.session.add(link)
-			db.session.commit()
+    dups = (
+        db.session.query(Entry.date, func.count(Entry.id).label("freq"))
+        .group_by(Entry.date)
+        .subquery()
+    )
+    pair = (
+        db.session.query(Entry.id, Entry.lang, Entry.date, dups.c.freq)
+        .outerjoin(dups, Entry.date == dups.c.date)
+        .filter(dups.c.freq > 1)
+        .order_by(Entry.date)
+        .all()
+    )
+    mapping = {}
+    for p in pair:
+        if p.date not in mapping:
+            mapping[p.date] = [p.id]
+        else:
+            mapping[p.date].append(p.id)
 
-#findpairs()
+    l = list(mapping.values())
+    for bunch in tqdm(l):
+        z = itertools.permutations(bunch, 2)
+        z = list(z)
+        for (x, y) in z:
+            link = Link(first_id=x, second_id=y)
+            db.session.add(link)
+            db.session.commit()
 
+
+# findpairs()

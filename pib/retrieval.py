@@ -1,16 +1,18 @@
-from datetime import timedelta 
 import datetime
+import itertools
+import re
+import string
+from collections import namedtuple
+from datetime import timedelta
+from pprint import pprint
+
+import numpy as np
+from sqlalchemy import and_, func
+from tqdm import tqdm
+
 from . import db
 from .models import Entry, Link, Translation
-from sqlalchemy import func, and_
-import itertools
-from tqdm import tqdm
-from collections import namedtuple
-import numpy as np
-import string
-import re
 from .utils import clean_translation
-from pprint import pprint
 
 
 class SPMPreprocessor:
@@ -21,7 +23,7 @@ class SPMPreprocessor:
     def __call__(self, content):
         # print(content, type(content))
         _, content = self.tokenizer(content, lang=self.lang)
-        return ' '.join(content)
+        return " ".join(content)
 
 
 class RetrievalEngine:
@@ -36,6 +38,7 @@ class RetrievalEngine:
         candidates = self.candidates
 
         from sklearn.feature_extraction.text import TfidfVectorizer
+
         self.vectorizer = TfidfVectorizer()
 
         # Fits and transforms on existing data.
@@ -47,6 +50,7 @@ class RetrievalEngine:
 
         def batch_cosine_similarity(query_feature, candidate_features):
             from sklearn.metrics.pairwise import cosine_similarity
+
             query_feature = np.tile(query_feature, (N, 1))
             cs = cosine_similarity(query_feature, candidate_features)
             cs = np.diag(cs)
@@ -55,11 +59,10 @@ class RetrievalEngine:
         bcs = batch_cosine_similarity(self.query_feature, self.candidate_features)
         self.similarities = bcs
 
-
     def reorder(self):
         candidate_idxs = self.candidate_idxs
-        Retrieved = namedtuple('Retrieved', 'id similarity')
-        sorted_indices = np.argsort(-1*self.similarities)
+        Retrieved = namedtuple("Retrieved", "id similarity")
+        sorted_indices = np.argsort(-1 * self.similarities)
         return [
             Retrieved(id=candidate_idxs[idx], similarity=self.similarities[idx])
             for idx in sorted_indices
@@ -67,70 +70,60 @@ class RetrievalEngine:
 
 
 def get_candidates(query_id, days):
-    langs = ['hi', 'ta', 'te', 'ml', 'ur', 'bn', 'gu', 'mr', 'pa', 'or']
-    delta = timedelta(days = days)
-    query = (
-        db.session.query(Entry)
-            .filter(Entry.id==query_id)
-            .first()
-    )
+    langs = ["hi", "ta", "te", "ml", "ur", "bn", "gu", "mr", "pa", "or"]
+    delta = timedelta(days=days)
+    query = db.session.query(Entry).filter(Entry.id == query_id).first()
 
     candidates = []
 
-    if query.lang == 'en':
-        noneng_matches = db.session.query(Entry) \
-                        .filter(and_(Entry.lang!='en',Entry.lang.in_(langs))) \
-                        .filter(Entry.date.between(query.date-delta,query.date+delta))\
-                        .all()
+    if query.lang == "en":
+        noneng_matches = (
+            db.session.query(Entry)
+            .filter(and_(Entry.lang != "en", Entry.lang.in_(langs)))
+            .filter(Entry.date.between(query.date - delta, query.date + delta))
+            .all()
+        )
         for match in noneng_matches:
-            candidates.append((match.id,match.lang))  
+            candidates.append((match.id, match.lang))
         return candidates
     else:
         eng_matches = (
-            db.session.query(Entry.id) 
-                .filter(Entry.lang=='en')
-                .filter(Entry.date.between(query.date-delta,query.date+delta))
-                .all()
+            db.session.query(Entry.id)
+            .filter(Entry.lang == "en")
+            .filter(Entry.date.between(query.date - delta, query.date + delta))
+            .all()
         )
 
         for match in eng_matches:
-            candidates.append(match.id)   
+            candidates.append(match.id)
         return candidates
 
 
 def get_candidates_by_lang(query_id, lang, days):
-    delta = timedelta(days = days)
-    query = (
-        db.session.query(Entry)
-            .filter(Entry.id==query_id)
-            .first()
-    )
+    delta = timedelta(days=days)
+    query = db.session.query(Entry).filter(Entry.id == query_id).first()
     candidates = []
     matches = (
-        db.session.query(Entry.id) 
-            .filter(Entry.lang==lang)
-            .filter(Entry.date.between(query.date-delta,query.date+delta))
-            .all()
+        db.session.query(Entry.id)
+        .filter(Entry.lang == lang)
+        .filter(Entry.date.between(query.date - delta, query.date + delta))
+        .all()
     )
     for match in matches:
-        candidates.append(match.id)   
+        candidates.append(match.id)
     return candidates
 
 
-def retrieve_neighbours(
-        query_id, pivot_lang, tokenizer, 
-        model, length_check=True):
+def retrieve_neighbours(query_id, pivot_lang, tokenizer, model, length_check=True):
 
     candidates = get_candidates_by_lang(query_id, pivot_lang, days=2)
-    query = (
-        Translation.query.filter(
-            and_(
-                Translation.parent_id == query_id, 
-                Translation.model == model,
-                Translation.lang == pivot_lang
-            )
-        ).first()
-    )
+    query = Translation.query.filter(
+        and_(
+            Translation.parent_id == query_id,
+            Translation.model == model,
+            Translation.lang == pivot_lang,
+        )
+    ).first()
 
     # Where to find neighbours if empty.
     if query is None:
@@ -146,7 +139,7 @@ def retrieve_neighbours(
     for content in candidate_content:
         if content.content is None:
             print(content, content.content, content.id)
-        content.content = content.content or ''
+        content.content = content.content or ""
         processed = preprocess(content.content)
         candidate_corpus.append(processed)
 
