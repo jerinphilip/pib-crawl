@@ -7,8 +7,8 @@ from ilmulti.segment import build_segmenter
 from sqlalchemy import and_, func
 from tqdm import tqdm
 
-from .. import db
-from ..models import Entry
+from pib import db
+from pib.models import Entry
 
 
 class WriteStrategy:
@@ -37,7 +37,7 @@ class Segmented(WriteStrategy):
         self.segmenter = build_segmenter("pattern")
 
     def add_content(self, content):
-        lang, segments = self.segmenter(entry.content, lang=args.lang)
+        lang, segments = self.segmenter(content, lang=args.lang)
         self.unique.update(segments)
 
     def __exit__(self, *args, **kwargs):

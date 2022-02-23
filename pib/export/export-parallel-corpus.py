@@ -10,9 +10,9 @@ from ilmulti.translator import from_pretrained
 from sqlalchemy import and_, func, or_
 from tqdm import tqdm
 
-from .. import db
-from ..cli.utils import ParallelWriter, Preproc
-from ..models import Entry, Link, Retrieval, Translation
+from pib import db
+from pib.cli.utils import ParallelWriter, Preproc
+from pib.models import Entry, Link, Retrieval, Translation
 
 
 def get_src_hyp_io(src_id, tgt_lang, model):

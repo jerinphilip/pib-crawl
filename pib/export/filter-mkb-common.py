@@ -5,7 +5,7 @@ from collections import defaultdict
 
 from tqdm import tqdm
 
-from ..cli.utils import ParallelWriter
+from pib.cli.utils import ParallelWriter
 
 
 def remove(pib_dir, mkb_dir):
@@ -13,9 +13,9 @@ def remove(pib_dir, mkb_dir):
     for lang in reqs:
         mkb = defaultdict(list)
         pib = defaultdict(list)
-        # fpath = os.path.join(pib_dir,'pib-v{}'.format(iteration))
-        # fname = 'train'
-        # pwriter = ParallelWriter(fpath, fname)
+        fpath = os.path.join(pib_dir,'pib-v{}'.format(iteration))
+        fname = 'train'
+        pwriter = ParallelWriter(fpath, fname)
         def dirname(xx):
             fst, snd = sorted([xx, "en"])
             return "{}-{}".format(fst, snd)
