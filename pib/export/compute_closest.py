@@ -31,7 +31,7 @@ class TestDataStorage:
         srcs = []
         tgts = []
         for mkb_idx, (test_src, test_tgt) in enumerate(self.test_data):
-            if eval_len_ratio(spib, test_src) or eval_len_ratio(tpib, test_tgt):
+            if eval_len_ratio(src_line, test_src) or eval_len_ratio(tgt_line, test_tgt):
                 src_edit = distance(src_line, test_src)
                 tgt_edit = distance(tgt_line, test_tgt)
             else:
