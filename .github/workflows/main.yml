@@ -3,6 +3,7 @@ name: "checks"
   push:
     branches:
       - main
+      - master
       - ci-sandbox
     tags:
       - "v*.*.*"
@@ -26,7 +27,11 @@ jobs:
         run: |
             python3 -m black --check pib 
             python3 -m isort --profile black --diff --check pib
+      
+      - name: "Install requirements so we can proper typecheck"
+        run: |
+            python3 -m pip install -r requirements.txt
+
       - name: "Static typing checks: pytype"
         run: |-
-            # python3 -m pytype pib
-            echo "Skipping this for now... :)"
+            python3 -m pytype pib
