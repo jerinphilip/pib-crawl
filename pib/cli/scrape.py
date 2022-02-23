@@ -127,7 +127,7 @@ class CachedCrawler:
                     a.text.strip(): process(a["href"])
                     for a in lang_links.find_all("a", href=True)
                 }
-            ) 
+            )
             content = soup.find("div", {"id": "PdfDiv"})
             text = content.text.strip()
 

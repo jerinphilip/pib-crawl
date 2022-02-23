@@ -13,10 +13,11 @@ def remove(pib_dir, mkb_dir):
     for lang in reqs:
         mkb = defaultdict(list)
         pib = defaultdict(list)
-        iteration = '3'
-        fpath = os.path.join(pib_dir,'pib-v{}'.format(iteration))
-        fname = 'train'
+        iteration = "3"
+        fpath = os.path.join(pib_dir, "pib-v{}".format(iteration))
+        fname = "train"
         pwriter = ParallelWriter(fpath, fname)
+
         def dirname(xx):
             fst, snd = sorted([xx, "en"])
             return "{}-{}".format(fst, snd)
