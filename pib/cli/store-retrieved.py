@@ -1,3 +1,5 @@
+# type: ignore
+# Retrieval is gone, so this file can't be typechecked.
 import os
 import sys
 from argparse import ArgumentParser
