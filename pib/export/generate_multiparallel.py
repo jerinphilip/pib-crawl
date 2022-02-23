@@ -6,7 +6,7 @@ from itertools import combinations, permutations
 import langid
 import pandas as pd
 
-from ..cli.utils import ParallelWriter, canonical_lang_pair_dirname, file_line_count
+from pib.cli.utils import ParallelWriter, canonical_lang_pair_dirname, file_line_count
 
 
 def collect(xx, yy, input_dir, pwriter):
