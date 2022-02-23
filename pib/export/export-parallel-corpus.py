@@ -10,9 +10,9 @@ from ilmulti.translator import from_pretrained
 from sqlalchemy import and_, func, or_
 from tqdm import tqdm
 
-from .. import db
-from ..cli.utils import ParallelWriter, Preproc
-from ..models import Entry, Link, Retrieval, Translation
+from pib import db
+from pib.cli.utils import ParallelWriter, Preproc
+from pib.models import Entry, Link, Translation
 
 
 def get_src_hyp_io(src_id, tgt_lang, model):
@@ -72,24 +72,25 @@ def export(src_lang, tgt_lang, model, threshold, resume_from=0):
             continue
 
         counter += 1
-        src_io, hyp_io, exists = get_src_hyp_io(entry.id, tgt_lang, model)
-        if exists:
-            retrieved = Retrieval.query.filter(
-                and_(Retrieval.query_id == entry.id, Retrieval.model == model)
-            ).first()
-            if retrieved:
-                retrieved_id, score = retrieved.retrieved_id, retrieved.score
-                tgt_io = get_tgt_io(retrieved_id)
-                if score >= threshold:
-                    align(
-                        src_io,
-                        tgt_io,
-                        hyp_io,
-                        entry.id,
-                        retrieved_id,
-                        src_lang,
-                        tgt_lang,
-                    )
+        # TODO(jerinphilip): We do not need Retrieval anymore. It's nuked. Commenting for now for pytype.
+        # src_io, hyp_io, exists = get_src_hyp_io(entry.id, tgt_lang, model)
+        # if exists:
+        #     retrieved = Retrieval.query.filter(
+        #         and_(Retrieval.query_id == entry.id, Retrieval.model == model)
+        #     ).first()
+        #     if retrieved:
+        #         retrieved_id, score = retrieved.retrieved_id, retrieved.score
+        #         tgt_io = get_tgt_io(retrieved_id)
+        #         if score >= threshold:
+        #             align(
+        #                 src_io,
+        #                 tgt_io,
+        #                 hyp_io,
+        #                 entry.id,
+        #                 retrieved_id,
+        #                 src_lang,
+        #                 tgt_lang,
+        #             )
 
 
 if __name__ == "__main__":

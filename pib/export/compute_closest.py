@@ -7,7 +7,7 @@ from pprint import pprint
 import editdistance
 from tqdm import tqdm
 
-from ..cli.utils import ParallelWriter
+from pib.cli.utils import ParallelWriter
 
 
 class TestDataStorage:
@@ -31,7 +31,7 @@ class TestDataStorage:
         srcs = []
         tgts = []
         for mkb_idx, (test_src, test_tgt) in enumerate(self.test_data):
-            if eval_len_ratio(spib, test_src) or eval_len_ratio(tpib, test_tgt):
+            if eval_len_ratio(src_line, test_src) or eval_len_ratio(tgt_line, test_tgt):
                 src_edit = distance(src_line, test_src)
                 tgt_edit = distance(tgt_line, test_tgt)
             else:
@@ -98,7 +98,7 @@ def main(args):
     fname = "train.minus.mkb"
     pwriter = ParallelWriter(pdir, fname)
 
-    for pib_idx, (spib, tpib) in enumerate(tqdm(zip(pib_src, pib_tgt), total=src_len)):
+    for pib_idx, (spib, tpib) in enumerate(tqdm(zip(pib_src, pib_tgt))):
         spib, tpib = spib.rstrip(), tpib.rstrip()
         src_mkb, tgt_mkb = storage.closest(spib, tpib)
         (mkb_idx, pibs, smkb, src_dist) = src_mkb

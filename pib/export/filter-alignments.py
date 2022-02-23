@@ -6,7 +6,7 @@ from ilmulti.translator import from_pretrained
 from langid.langid import LanguageIdentifier
 from langid.langid import model as m
 
-from ..cli.utils import ParallelWriter
+from pib.cli.utils import ParallelWriter
 
 
 class LengthRatioFilter:

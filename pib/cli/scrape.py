@@ -111,6 +111,8 @@ class CachedCrawler:
     def retrieve_pib_article(self, key):
         try:
             page = self.load(key)
+
+            # pytype: disable=attribute-error
             soup = BeautifulSoup(page, "html.parser")
             lang_links = soup.find("div", {"class": "ReleaseLang"})
 
@@ -133,6 +135,8 @@ class CachedCrawler:
                 "div", {"class": "ReleaseDateSubHeaddateTime"}
             ).text.strip()
             ministry = soup.find("div", {"class": "MinistryNameSubhead"}).text.strip()
+
+            # pytype: enable=attribute-error
 
             return PIBArticle.fromCrawl(
                 {
