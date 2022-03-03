@@ -32,7 +32,7 @@ def entry(id):
 
     x.content = split_and_wrap_in_p(x.content)
     links = M.Link.query.filter_by(first_id=id).all()
-    group = { idx: link for idx, link in enumerate(links) }
+    group = {idx: link for idx, link in enumerate(links)}
     return render_template("entry.html", entry=x, retrieved=group)
 
 
