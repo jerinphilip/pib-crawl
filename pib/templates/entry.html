@@ -15,7 +15,7 @@
                   {% for idx, link in retrieved.items() %}
                     <li>
                         <a href="{{url_for('docstore.parallel', src=entry.id, tgt=link.second_id)}}">
-                        {{link.second_id}}</a> 
+                          {{link.second.lang}} ({{link.second_id}}) </a> 
                     </li>
                     {% endfor %}
                 </ul>
