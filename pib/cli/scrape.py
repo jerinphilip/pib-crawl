@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm, trange
 
 from .. import db
-from ..models import Entry
+from ..models import Entry, Link
 
 
 class PIBArticle:
@@ -213,9 +213,17 @@ def main(args):
             adj.save()
             logging.info("Committing to DB @ {}".format(key))
 
+    adj.save()
+
+    for u in tqdm(adj):
+        for lang, v in adj[u].items():
+            link = Link.query.filter_by(first_id=u, second_id=v).first()
+            if link is None:
+                link = Link(first_id=u, second_id=v)
+                db.session.add(link)
+
     db.session.commit()
     db.session.flush()
-    adj.save()
 
 
 def setup_logging(logPath, fileName):
