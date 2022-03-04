@@ -26,29 +26,13 @@ def index():
 @docstore.route("/entry/<id>")
 def entry(id):
     x = M.Entry.query.get(id)
-
-    # Replace model: str with models table.
-    # models = ['mm-to-en-iter1', 'mm_toEN_iter1', 'mm_all_iter1', 'mm_all_iter0']
     models = ["mm-to-en-iter3", "mm-to-en-iter2", "mm-to-en-iter1", "mm-all-iter1"]
 
     group = defaultdict(list)
 
     x.content = split_and_wrap_in_p(x.content)
-    print(x.finalized)
-
-    if x.lang != "en":
-        for model in models:
-            if model == "mm-all-iter1":
-                pivot_lang = "hi"
-            else:
-                pivot_lang = "en"
-
-            op_model = lazy_load("op_model")
-            retrieved = retrieve_neighbours(
-                x.id, pivot_lang=pivot_lang, tokenizer=op_model.tokenizer, model=model
-            )
-            group[model] = retrieved
-
+    links = M.Link.query.filter_by(first_id=id).all()
+    group = {idx: link for idx, link in enumerate(links)}
     return render_template("entry.html", entry=x, retrieved=group)
 
 

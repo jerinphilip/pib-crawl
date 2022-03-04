@@ -12,12 +12,8 @@
         {% include 'navbar.html' %}
         <div class="container">
             {% include 'flash.html' %}
-            <div class="row">
-                <div class="col">
-                    {% block body %}
-                    {% endblock %}
-                </div>
-            </div>
+            {% block body %}
+            {% endblock %}
         </div>
     </body>
 </html>
